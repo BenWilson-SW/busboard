@@ -35,15 +35,17 @@ function App() {
     fetch(`https://api.tfl.gov.uk/StopPoint/?lat=${location.lat}&lon=${location.lng}&stopTypes=NaptanPublicBusCoachTram&radius=200&modes=bus&categories=none&app_key=${apiKey}`)
       .then(resp => resp.json())
       .then(resp => resp.stopPoints)
-      .then(setStops);
+      .then(setStops)
+      .catch(console.error);
   }
 
   function markers() {
-    if (stops.length > 0) {
-      return stops.map(({ lat, lon }) => new LatLng(lat, lon));
+    const locations = stops.map(({ lat, lon }) => new LatLng(lat, lon));
+    if (location) {
+      locations.push(location);
     }
 
-    return location ? [location] : [];
+    return locations;
   }
 
   return (
@@ -65,9 +67,13 @@ function App() {
           <h1 className="text-2xl font-bold">Click the map to select a location!</h1>
         )}
 
-        {location && (
+        {!apiKey && (
+          <h1 className="text-2xl font-bold">Enter an API key to fetch stop information!</h1>
+        )}
+
+        {location && apiKey && (
           <button
-            className="px-4 py-2 rounded-xl bg-amber-900 text-white"
+            className="px-4 py-2 rounded-sm bg-black text-white font-bold"
             onClick={getStops}
           >
             Get Stops
