@@ -22,6 +22,7 @@ const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
 function App() {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [stops, setStops] = useState<StopPoint[]>([]);
+  const [selectedStop, setSelectedStop] = useState<StopPoint | null>(null);
 
   const [apiKey, _setApiKey] = useState<string>(INITIAL_API_KEY);
 
@@ -58,11 +59,12 @@ function App() {
 
       <Map
         onLocationClick={setLocation}
+        onMarkerClick={(_, i) => setSelectedStop(stops[i])}
         markers={markers()}
         className="grow"
       />
 
-      <div className="flex flex-col items-center justify-between h-1/4 gap-1 p-5 overflow-hidden">
+      <div className="flex flex-col items-center justify-between gap-2 p-5 min-h-1/5">
         {!location && (
           <h1 className="text-2xl font-bold">Click the map to select a location!</h1>
         )}
@@ -71,19 +73,36 @@ function App() {
           <h1 className="text-2xl font-bold">Enter an API key to fetch stop information!</h1>
         )}
 
-        {location && apiKey && (
-          <button
-            className="px-4 py-2 rounded-sm bg-black text-white font-bold"
-            onClick={getStops}
-          >
-            Get Stops
-          </button>
-        )}
+        <div className="flex gap-2">
+          {location && apiKey && (
+            <button
+              className="px-4 py-2 rounded-sm bg-black text-white font-bold"
+              onClick={getStops}
+            >
+              Get Stops
+            </button>
+          )}
+
+          {
+            selectedStop && (
+              <button
+                className="px-4 py-2 rounded-sm bg-black text-white font-bold"
+                onClick={() => setSelectedStop(null)}
+              >
+                Clear Selection
+              </button>
+            )
+          }
+        </div>
 
         <div>
-          {stops.map(stop => (
-            <p key={stop.naptanId}>{stop.commonName} ({stop.naptanId} / {stop.stationNaptan}) @ {stop.lat},{stop.lon} : {stop.lines.map(line => line.id).join(', ')}</p>
-          ))}
+          {
+            selectedStop ? (
+              <span>Selected Stop: {selectedStop.commonName} ({selectedStop.naptanId} / {selectedStop.stationNaptan}) @ {selectedStop.lat},{selectedStop.lon} : {selectedStop.lines.map(line => line.id).join(', ')}</span>
+            ) : (
+              <span>No Stop Selected</span>
+            )
+          }
         </div>
 
         <div>
