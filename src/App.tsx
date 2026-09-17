@@ -1,4 +1,4 @@
-import {type ChangeEvent, useRef, useState} from 'react'
+import { useState} from 'react'
 import { LatLng } from 'leaflet'
 import Map from './Map.tsx'
 
@@ -28,15 +28,12 @@ const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
 
 function App() {
   const [location, setLocation] = useState<LatLng | null>(null);
-  const debouncePostCode = useRef<number | null>(null);
   const [stops, setStops] = useState<StopPoint[]>([]);
   const [selectedStop, setSelectedStop] = useState<StopPoint | null>(null);
   const [arrivals, setArrivals] = useState<Prediction[]>([]);
 
   const [postCode, setPostCode] = useState<string>('');
-  const [postCodeLocation, setPostCodeLocation] = useState<LatLng | null>(null);
-  const [validPostCode, setValidPostCode] = useState<boolean>(false);
-  const [postCodeMessage, setPostCodeMessage] = useState<string>('');
+  const [postCodeMessage, setPostCodeMessage] = useState<string | null>(null);
 
   const [apiKey, _setApiKey] = useState<string>(INITIAL_API_KEY);
 
@@ -45,37 +42,24 @@ function App() {
     _setApiKey(newApiKey);
   }
 
-  function changePostCode(e: ChangeEvent<HTMLInputElement>) {
-    if (debouncePostCode.current) {
-      clearTimeout(debouncePostCode.current);
-    }
+  async function goToPostCode() {
+    try {
+      const resp = await fetch(`https://api.postcodes.io/postcodes/${postCode}`);
+      const data = await resp.json();
 
-    debouncePostCode.current = setTimeout(() => {
-      fetch(`http://api.postcodes.io/postcodes/${e.target.value}`)
-        .then(resp => resp.json())
-        .then(resp => {
-          if (resp.status === 200) {
-            const data = Array.isArray(resp.result) ? resp.result[0] : resp.result;
-            const location = new LatLng(data.latitude, data.longitude);
+      if (resp.status === 200) {
+        const result = Array.isArray(data.result) ? data.result[0] : data.result;
+        const location = new LatLng(result.latitude, result.longitude);
 
-            setValidPostCode(true);
-            setPostCodeLocation(location);
-          } else {
-            setValidPostCode(false);
-            setPostCodeMessage(resp.error);
-          }
-        })
-        .catch(console.error);
-    }, 500);
+        setPostCodeMessage(null);
+        getStops(location);
 
-    setPostCode(e.target.value);
-  }
-
-  function goToPostCode() {
-    // TODO somehow call map.panTo / map.flyTo
-
-    if (postCodeLocation) {
-      getStops(postCodeLocation);
+        // TODO somehow call map.flyTo(location, 15)
+      } else {
+        setPostCodeMessage(data.error);
+      }
+    } catch (e) {
+      console.error(e);
     }
   }
 
@@ -139,17 +123,19 @@ function App() {
           <button
             className="px-4 py-2 rounded-sm bg-black text-white font-bold disabled:bg-gray-600"
             onClick={goToPostCode}
-            disabled={!validPostCode}
           >
             Go To
           </button>
 
           <input
-            className="border p-1"
+            className={"border p-1 " + (postCodeMessage ? "border-red-600" : "")}
             type="text"
             placeholder="Post Code"
             value={postCode}
-            onChange={changePostCode}
+            onChange={(e) => {
+              setPostCode(e.target.value);
+              setPostCodeMessage(null);
+            }}
           />
 
           {location && apiKey && (
@@ -173,7 +159,7 @@ function App() {
           }
         </div>
 
-        {!validPostCode && postCodeMessage && (<div>
+        {postCodeMessage && (<div>
           <span>{postCodeMessage}</span>
         </div>)}
 
