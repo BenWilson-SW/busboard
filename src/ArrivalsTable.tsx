@@ -9,7 +9,7 @@ const MAX_ARRIVALS = 5;
 
 export function ArrivalsTable({ stop, arrivals }: ArrivalsTableProps) {
   return (
-    <section className="flex flex-col gap-5 items-center w-full">
+    <section className="flex flex-col gap-5 items-center w-full max-w-3xl">
       <h1 className="text-3xl text-cyan-600 font-bold capitalize">{stop.commonName}</h1>
 
       <table className="border-separate w-full border-spacing-y-1 px-5">
