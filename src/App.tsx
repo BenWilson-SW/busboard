@@ -1,37 +1,16 @@
 import { useRef, useState } from 'react'
 import { LatLng, type Map as LeafletMap } from 'leaflet'
 import Map from './Map.tsx'
-
-interface Line {
-  id: string;
-  name: string;
-  uri: string;
-}
-
-interface StopPoint {
-  commonName: string;
-  naptanId: string;
-  stationNaptan: string;
-  lat: number;
-  lon: number;
-  lines: Line[];
-}
-
-interface Prediction {
-  id: string;
-  lineName: string;
-  destinationName: string;
-  timeToStation: number; // seconds
-}
+import type {ArrivalPrediction, StopPoint} from "./types.ts";
+import {ArrivalsTable} from "./ArrivalsTable.tsx";
 
 const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
-const MAX_ARRIVALS = 5;
 
 function App() {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [stops, setStops] = useState<StopPoint[]>([]);
   const [selectedStop, setSelectedStop] = useState<StopPoint | null>(null);
-  const [arrivals, setArrivals] = useState<Prediction[]>([]);
+  const [arrivals, setArrivals] = useState<ArrivalPrediction[]>([]);
 
   const [postCode, setPostCode] = useState<string>('');
   const [postCodeMessage, setPostCodeMessage] = useState<string | null>(null);
@@ -79,7 +58,7 @@ function App() {
     setSelectedStop(stop);
     fetch(`https://api.tfl.gov.uk/StopPoint/${stop.naptanId}/Arrivals?app_key=${apiKey}`)
       .then(resp => resp.json())
-      .then((predictions: Prediction[]) => predictions.sort((a, b) => a.timeToStation - b.timeToStation))
+      .then((predictions: ArrivalPrediction[]) => predictions.sort((a, b) => a.timeToStation - b.timeToStation))
       .then(setArrivals)
       .catch(console.error);
   }
@@ -168,28 +147,7 @@ function App() {
         </div>
 
         {selectedStop && (
-          <section className="flex flex-col gap-5 items-center w-full">
-            <h1 className="text-3xl text-cyan-600 font-bold capitalize">{selectedStop.commonName}</h1>
-
-            <table className="border-separate w-full border-spacing-y-1 px-5">
-              <thead className="text-lg font-bold">
-                <tr>
-                  <td>Line</td>
-                  <td>Destination</td>
-                  <td>Arrives In</td>
-                </tr>
-              </thead>
-              <tbody>
-                {arrivals.slice(0, MAX_ARRIVALS).map(arrival => (
-                  <tr key={arrival.id}>
-                    <td>{arrival.lineName}</td>
-                    <td>{arrival.destinationName}</td>
-                    <td>{Math.round(arrival.timeToStation / 60)} min</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          <ArrivalsTable stop={selectedStop} arrivals={arrivals} />
         )}
 
         <footer className="flex justify-between w-full">
