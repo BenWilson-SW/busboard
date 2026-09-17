@@ -3,6 +3,7 @@ import { LatLng, type Map as LeafletMap } from 'leaflet'
 import Map from './Map.tsx'
 import type {ArrivalPrediction, StopPoint} from "./types.ts";
 import {ArrivalsTable} from "./ArrivalsTable.tsx";
+import {LoadingOverlay} from "./LoadingOverlay.tsx";
 
 const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
 
@@ -19,12 +20,17 @@ function App() {
 
   const mapRef = useRef<LeafletMap | null>(null);
 
+  const [loadingCount, setLoadingCount] = useState(0);
+  const loading = loadingCount > 0;
+
   function setApiKey(newApiKey: string) {
     sessionStorage.setItem('tflApiKey', newApiKey);
     _setApiKey(newApiKey);
   }
 
   async function goToPostCode() {
+    setLoadingCount(c => c + 1);
+
     try {
       const resp = await fetch(`https://api.postcodes.io/postcodes/${postCode}`);
       const data = await resp.json();
@@ -42,25 +48,35 @@ function App() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoadingCount(c => c - 1);
     }
   }
 
   function getStops(location: LatLng) {
     if (!location) return;
+
+    setLoadingCount(c => c + 1);
+
     fetch(`https://api.tfl.gov.uk/StopPoint/?lat=${location.lat}&lon=${location.lng}&stopTypes=NaptanPublicBusCoachTram&radius=200&modes=bus&categories=none&app_key=${apiKey}`)
       .then(resp => resp.json())
       .then(resp => resp.stopPoints)
       .then(setStops)
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingCount(c => c - 1));
   }
 
   function selectStop(stop: StopPoint) {
     setSelectedStop(stop);
+
+    setLoadingCount(c => c + 1);
+
     fetch(`https://api.tfl.gov.uk/StopPoint/${stop.naptanId}/Arrivals?app_key=${apiKey}`)
       .then(resp => resp.json())
       .then((predictions: ArrivalPrediction[]) => predictions.sort((a, b) => a.timeToStation - b.timeToStation))
       .then(setArrivals)
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingCount(c => c - 1));
   }
 
   function clearSelection() {
@@ -79,6 +95,8 @@ function App() {
 
   return (
     <div className="flex flex-col h-dvh">
+      <LoadingOverlay loading={loading} />
+
       <header>
         <h1 className="text-3xl font-bold underline text-center text-cyan-600 m-4">
           BusBoard
