@@ -1,4 +1,4 @@
-import { useRef, useState} from 'react'
+import { useRef, useState } from 'react'
 import { LatLng, type Map as LeafletMap } from 'leaflet'
 import Map from './Map.tsx'
 
@@ -25,6 +25,7 @@ interface Prediction {
 }
 
 const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
+const MAX_ARRIVALS = 5;
 
 function App() {
   const [location, setLocation] = useState<LatLng | null>(null);
@@ -54,6 +55,7 @@ function App() {
         const location = new LatLng(result.latitude, result.longitude);
 
         setPostCodeMessage(null);
+        setLocation(location);
         getStops(location);
         mapRef.current?.flyTo(location, 16);
       } else {
@@ -112,7 +114,7 @@ function App() {
         className="grow"
       />
 
-      <div className="flex flex-col items-center justify-between gap-2 p-5 min-h-1/5">
+      <main className="flex flex-col items-center justify-between gap-10 p-5 min-h-1/5">
         {!location && (
           <h1 className="text-2xl font-bold">Click the map to select a location!</h1>
         )}
@@ -120,6 +122,10 @@ function App() {
         {!apiKey && (
           <h1 className="text-2xl font-bold">Enter an API key to fetch stop information!</h1>
         )}
+
+        {postCodeMessage && (<div className="text-xl uppercase font-bold">
+          <span>{postCodeMessage}</span>
+        </div>)}
 
         <div className="flex gap-2">
           <button
@@ -161,45 +167,48 @@ function App() {
           }
         </div>
 
-        {postCodeMessage && (<div>
-          <span>{postCodeMessage}</span>
-        </div>)}
-
-        <div>
-          {
-            selectedStop ? (
-              <span>Selected Stop: {selectedStop.commonName} ({selectedStop.naptanId} / {selectedStop.stationNaptan}) @ {selectedStop.lat},{selectedStop.lon} : {selectedStop.lines.map(line => line.id).join(', ')}</span>
-            ) : (
-              <span>No Stop Selected</span>
-            )
-          }
-        </div>
-
         {selectedStop && (
-          <ul>
-            {arrivals.slice(0, 5).map(a => (
-              <li key={a.id}>
-                {a.lineName} to {a.destinationName} - {Math.round(a.timeToStation / 60)} min
-              </li>
-            ))}
-          </ul>
+          <section className="flex flex-col gap-5 items-center w-full">
+            <h1 className="text-3xl text-cyan-600 font-bold capitalize">{selectedStop.commonName}</h1>
+
+            <table className="border-separate w-full border-spacing-y-1 px-5">
+              <thead className="text-lg font-bold">
+                <tr>
+                  <td>Line</td>
+                  <td>Destination</td>
+                  <td>Arrives In</td>
+                </tr>
+              </thead>
+              <tbody>
+                {arrivals.slice(0, MAX_ARRIVALS).map(arrival => (
+                  <tr key={arrival.id}>
+                    <td>{arrival.lineName}</td>
+                    <td>{arrival.destinationName}</td>
+                    <td>{Math.round(arrival.timeToStation / 60)} min</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
         )}
 
-        <div>
-          <label className="mr-1" htmlFor="api-key">TFL API Key</label>
-          <input
-            className="border"
-            id="api-key"
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-          />
-        </div>
+        <footer className="flex justify-between w-full">
+          <span>
+            <label className="mr-1" htmlFor="api-key">TFL API Key</label>
+            <input
+              className="border"
+              id="api-key"
+              type="password"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+            />
+          </span>
 
-        {location && (
-          <p>({location.lat}, {location.lng})</p>
-        )}
-      </div>
+          {location && (
+            <p className="text-xs text-gray-600">({location.lat}, {location.lng})</p>
+          )}
+        </footer>
+      </main>
     </div>
   )
 }
