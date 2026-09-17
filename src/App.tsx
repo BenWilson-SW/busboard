@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import {type ChangeEvent, useRef, useState} from 'react'
 import { LatLng } from 'leaflet'
 import Map from './Map.tsx'
 
@@ -28,9 +28,15 @@ const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
 
 function App() {
   const [location, setLocation] = useState<LatLng | null>(null);
+  const debouncePostCode = useRef<number | null>(null);
   const [stops, setStops] = useState<StopPoint[]>([]);
   const [selectedStop, setSelectedStop] = useState<StopPoint | null>(null);
   const [arrivals, setArrivals] = useState<Prediction[]>([]);
+
+  const [postCode, setPostCode] = useState<string>('');
+  const [postCodeLocation, setPostCodeLocation] = useState<LatLng | null>(null);
+  const [validPostCode, setValidPostCode] = useState<boolean>(false);
+  const [postCodeMessage, setPostCodeMessage] = useState<string>('');
 
   const [apiKey, _setApiKey] = useState<string>(INITIAL_API_KEY);
 
@@ -39,7 +45,41 @@ function App() {
     _setApiKey(newApiKey);
   }
 
-  function getStops() {
+  function changePostCode(e: ChangeEvent<HTMLInputElement>) {
+    if (debouncePostCode.current) {
+      clearTimeout(debouncePostCode.current);
+    }
+
+    debouncePostCode.current = setTimeout(() => {
+      fetch(`http://api.postcodes.io/postcodes/${e.target.value}`)
+        .then(resp => resp.json())
+        .then(resp => {
+          if (resp.status === 200) {
+            const data = Array.isArray(resp.result) ? resp.result[0] : resp.result;
+            const location = new LatLng(data.latitude, data.longitude);
+
+            setValidPostCode(true);
+            setPostCodeLocation(location);
+          } else {
+            setValidPostCode(false);
+            setPostCodeMessage(resp.error);
+          }
+        })
+        .catch(console.error);
+    }, 500);
+
+    setPostCode(e.target.value);
+  }
+
+  function goToPostCode() {
+    // TODO somehow call map.panTo / map.flyTo
+
+    if (postCodeLocation) {
+      getStops(postCodeLocation);
+    }
+  }
+
+  function getStops(location: LatLng) {
     if (!location) return;
     fetch(`https://api.tfl.gov.uk/StopPoint/?lat=${location.lat}&lon=${location.lng}&stopTypes=NaptanPublicBusCoachTram&radius=200&modes=bus&categories=none&app_key=${apiKey}`)
       .then(resp => resp.json())
@@ -96,10 +136,26 @@ function App() {
         )}
 
         <div className="flex gap-2">
+          <button
+            className="px-4 py-2 rounded-sm bg-black text-white font-bold disabled:bg-gray-600"
+            onClick={goToPostCode}
+            disabled={!validPostCode}
+          >
+            Go To
+          </button>
+
+          <input
+            className="border p-1"
+            type="text"
+            placeholder="Post Code"
+            value={postCode}
+            onChange={changePostCode}
+          />
+
           {location && apiKey && (
             <button
               className="px-4 py-2 rounded-sm bg-black text-white font-bold"
-              onClick={getStops}
+              onClick={() => getStops(location)}
             >
               Get Stops
             </button>
@@ -117,6 +173,10 @@ function App() {
           }
         </div>
 
+        {!validPostCode && postCodeMessage && (<div>
+          <span>{postCodeMessage}</span>
+        </div>)}
+
         <div>
           {
             selectedStop ? (
@@ -131,7 +191,7 @@ function App() {
           <ul>
             {arrivals.slice(0, 5).map(a => (
               <li key={a.id}>
-                {a.lineName} to {a.destinationName} — {Math.round(a.timeToStation / 60)} min
+                {a.lineName} to {a.destinationName} - {Math.round(a.timeToStation / 60)} min
               </li>
             ))}
           </ul>
