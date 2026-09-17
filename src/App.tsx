@@ -1,5 +1,5 @@
-import { useState} from 'react'
-import { LatLng } from 'leaflet'
+import { useRef, useState} from 'react'
+import { LatLng, type Map as LeafletMap } from 'leaflet'
 import Map from './Map.tsx'
 
 interface Line {
@@ -37,6 +37,8 @@ function App() {
 
   const [apiKey, _setApiKey] = useState<string>(INITIAL_API_KEY);
 
+  const mapRef = useRef<LeafletMap | null>(null);
+
   function setApiKey(newApiKey: string) {
     sessionStorage.setItem('tflApiKey', newApiKey);
     _setApiKey(newApiKey);
@@ -53,8 +55,7 @@ function App() {
 
         setPostCodeMessage(null);
         getStops(location);
-
-        // TODO somehow call map.flyTo(location, 15)
+        mapRef.current?.flyTo(location, 16);
       } else {
         setPostCodeMessage(data.error);
       }
@@ -106,6 +107,7 @@ function App() {
       <Map
         onLocationClick={setLocation}
         onMarkerClick={(_, i) => selectStop(stops[i])}
+        onMapReady={(map) => { mapRef.current = map; }}
         markers={markers()}
         className="grow"
       />
