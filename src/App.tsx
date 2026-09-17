@@ -17,12 +17,20 @@ interface StopPoint {
   lines: Line[];
 }
 
+interface Prediction {
+  id: string;
+  lineName: string;
+  destinationName: string;
+  timeToStation: number; // seconds
+}
+
 const INITIAL_API_KEY = sessionStorage.getItem('tflApiKey') ?? '';
 
 function App() {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [stops, setStops] = useState<StopPoint[]>([]);
   const [selectedStop, setSelectedStop] = useState<StopPoint | null>(null);
+  const [arrivals, setArrivals] = useState<Prediction[]>([]);
 
   const [apiKey, _setApiKey] = useState<string>(INITIAL_API_KEY);
 
@@ -38,6 +46,20 @@ function App() {
       .then(resp => resp.stopPoints)
       .then(setStops)
       .catch(console.error);
+  }
+
+  function selectStop(stop: StopPoint) {
+    setSelectedStop(stop);
+    fetch(`https://api.tfl.gov.uk/StopPoint/${stop.naptanId}/Arrivals?app_key=${apiKey}`)
+      .then(resp => resp.json())
+      .then((predictions: Prediction[]) => predictions.sort((a, b) => a.timeToStation - b.timeToStation))
+      .then(setArrivals)
+      .catch(console.error);
+  }
+
+  function clearSelection() {
+    setSelectedStop(null);
+    setArrivals([]);
   }
 
   function markers() {
@@ -59,7 +81,7 @@ function App() {
 
       <Map
         onLocationClick={setLocation}
-        onMarkerClick={(_, i) => setSelectedStop(stops[i])}
+        onMarkerClick={(_, i) => selectStop(stops[i])}
         markers={markers()}
         className="grow"
       />
@@ -87,7 +109,7 @@ function App() {
             selectedStop && (
               <button
                 className="px-4 py-2 rounded-sm bg-black text-white font-bold"
-                onClick={() => setSelectedStop(null)}
+                onClick={clearSelection}
               >
                 Clear Selection
               </button>
@@ -104,6 +126,16 @@ function App() {
             )
           }
         </div>
+
+        {selectedStop && (
+          <ul>
+            {arrivals.slice(0, 5).map(a => (
+              <li key={a.id}>
+                {a.lineName} to {a.destinationName} — {Math.round(a.timeToStation / 60)} min
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div>
           <label className="mr-1" htmlFor="api-key">TFL API Key</label>
